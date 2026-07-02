@@ -1,4 +1,3 @@
-
 import tkinter as tk
 from tkinter import ttk, messagebox
 import math
@@ -6,110 +5,176 @@ import math
 class App:
     def __init__(self, root):
         self.root = root
-        root.title('Renovação - GH')
-        root.geometry('700x700')
+        root.title('GH Renovacao V3')
+        root.geometry('1000x800')
 
-        self.conc = tk.StringVar(value='12')
-        self.classe = tk.StringVar(value='Crianca E23')
+        fonte = ('Segoe UI', 14)
 
-        ttk.Label(root, text='Concentração').pack()
-        ttk.Radiobutton(root,text='4 UI/mL',variable=self.conc,value='4',command=self.update_conv).pack()
-        ttk.Radiobutton(root,text='12 UI/mL',variable=self.conc,value='12',command=self.update_conv).pack()
+        tk.Label(root, text='Sistema GH - Renovacao V3', font=('Segoe UI',18,'bold')).pack(pady=10)
 
-        ttk.Label(root,text='Última dose').pack()
-        self.last_val=tk.Entry(root); self.last_val.pack()
-        self.last_unit=tk.StringVar(value='UI')
-        ttk.Combobox(root,textvariable=self.last_unit,values=['UI','mL']).pack()
-        self.last_days=tk.Entry(root); self.last_days.pack(); self.last_days.insert(0,'7')
+        topo = tk.Frame(root)
+        topo.pack(fill='x', padx=10)
 
-        ttk.Label(root,text='Dose atual').pack()
-        self.curr_val=tk.Entry(root); self.curr_val.pack()
-        self.curr_val.bind('<KeyRelease>', lambda e:self.update_conv())
-        self.curr_unit=tk.StringVar(value='UI')
-        cb=ttk.Combobox(root,textvariable=self.curr_unit,values=['UI','mL'])
-        cb.pack(); cb.bind('<<ComboboxSelected>>', lambda e:self.update_conv())
-        self.curr_days=tk.Entry(root); self.curr_days.pack(); self.curr_days.insert(0,'7')
+        tk.Label(topo, text='Concentracao', font=fonte).grid(row=0,column=0)
+        self.conc = ttk.Combobox(topo, values=['4','12'], width=10)
+        self.conc.set('12')
+        self.conc.grid(row=0,column=1)
 
-        self.conv_lbl=ttk.Label(root,text='Equivalente: -')
-        self.conv_lbl.pack()
+        tk.Label(topo, text='Classificacao', font=fonte).grid(row=0,column=2)
+        self.classe = ttk.Combobox(topo, values=['Crianca CID E23','Adulto CID E23','Crianca CID Q96','Adulto CID Q96'], width=25)
+        self.classe.set('Crianca CID E23')
+        self.classe.grid(row=0,column=3)
+        self.classe.bind('<<ComboboxSelected>>', lambda e:self.atualizar_peso())
 
-        ttk.Label(root,text='Classificação').pack()
-        ttk.Combobox(root,textvariable=self.classe,values=['Crianca E23','Adulto E23','Crianca Q96','Adulto Q96']).pack()
+        lf = ttk.LabelFrame(root, text='Ultima dose deferida')
+        lf.pack(fill='x', padx=10, pady=5)
+        self.lv = tk.Entry(lf, font=fonte, width=10)
+        self.lv.grid(row=0,column=0)
+        self.lu = ttk.Combobox(lf, values=['UI','mL'], width=8)
+        self.lu.set('UI')
+        self.lu.grid(row=0,column=1)
+        tk.Label(lf,text='Dias por semana',font=fonte).grid(row=0,column=2)
+        self.ld = ttk.Combobox(lf, values=[1,2,3,4,5,6,7], width=5)
+        self.ld.set('7')
+        self.ld.grid(row=0,column=3)
 
-        ttk.Label(root,text='Peso (kg) - quando aplicável').pack()
-        self.peso=tk.Entry(root); self.peso.pack()
+        cf = ttk.LabelFrame(root, text='Dose atual')
+        cf.pack(fill='x', padx=10, pady=5)
+        self.cv = tk.Entry(cf, font=fonte, width=10)
+        self.cv.grid(row=0,column=0)
+        self.cu = ttk.Combobox(cf, values=['UI','mL'], width=8)
+        self.cu.set('UI')
+        self.cu.grid(row=0,column=1)
+        tk.Label(cf,text='Dias por semana',font=fonte).grid(row=0,column=2)
+        self.cd = ttk.Combobox(cf, values=[1,2,3,4,5,6,7], width=5)
+        self.cd.set('7')
+        self.cd.grid(row=0,column=3)
 
-        ttk.Button(root,text='Calcular',command=self.calc).pack(pady=10)
+        self.eq = tk.Label(cf, text='Equivalente: -', font=fonte)
+        self.eq.grid(row=1,column=0,columnspan=4,sticky='w')
 
-        self.out=tk.Text(root,height=18)
-        self.out.pack(fill='both',expand=True)
+        self.cv.bind('<KeyRelease>', lambda e:self.atualizar_equiv())
 
-    def update_conv(self):
+        self.peso_frame = tk.Frame(root)
+        self.peso_frame.pack(fill='x', padx=10)
+        tk.Label(self.peso_frame,text='Peso (kg)',font=fonte).pack(side='left')
+        self.peso = tk.Entry(self.peso_frame,font=fonte,width=10)
+        self.peso.pack(side='left')
+
+        tk.Button(root,text='CALCULAR',font=('Segoe UI',16,'bold'),command=self.calcular).pack(pady=10)
+
+        self.out = tk.Text(root,height=20,font=('Consolas',12))
+        self.out.pack(fill='both',expand=True,padx=10,pady=10)
+        self.out.tag_config('red', foreground='red')
+        self.out.tag_config('green', foreground='green')
+
+        self.atualizar_peso()
+
+    def atualizar_peso(self):
+        if self.classe.get() == 'Adulto CID E23':
+            self.peso_frame.pack_forget()
+        else:
+            self.peso_frame.pack(fill='x', padx=10)
+
+    def atualizar_equiv(self):
         try:
-            v=float(self.curr_val.get().replace(',','.'))
+            v=float(self.cv.get().replace(',','.'))
             c=float(self.conc.get())
-            if self.curr_unit.get()=='UI':
-                self.conv_lbl.config(text=f'Equivalente: {v/c:.3f} mL')
+            if self.cu.get()=='UI':
+                self.eq.config(text='Equivalente: %.3f mL' % (v/c))
             else:
-                self.conv_lbl.config(text=f'Equivalente: {v*c:.3f} UI')
+                self.eq.config(text='Equivalente: %.3f UI' % (v*c))
         except:
-            self.conv_lbl.config(text='Equivalente: -')
+            pass
 
-    def calc(self):
+    def conv(self,v,u,c):
+        if u=='UI':
+            return v, v/c
+        return v*c, v
+
+    def calcular(self):
+        self.out.delete('1.0','end')
         try:
-            c=float(self.conc.get())
-            lv=float(self.last_val.get().replace(',','.'))
-            cv=float(self.curr_val.get().replace(',','.'))
-            ld=float(self.last_days.get().replace(',','.'))
-            cd=float(self.curr_days.get().replace(',','.'))
+            conc=float(self.conc.get())
+            lv=float(self.lv.get().replace(',','.'))
+            cv=float(self.cv.get().replace(',','.'))
+            ld=float(self.ld.get())
+            cd=float(self.cd.get())
 
-            last_ui = lv if self.last_unit.get()=='UI' else lv*c
-            curr_ui = cv if self.curr_unit.get()=='UI' else cv*c
-
-            last_week = last_ui*ld
-            curr_week = curr_ui*cd
-
-            self.out.delete('1.0',tk.END)
-
-            if abs(last_week-curr_week) < 0.0001:
-                self.out.insert(tk.END,'✅ Tudo certo, dose atual confere com a última deferida!\nAgora lembre-se de observar os itens obrigatórios na receita.')
-                return
-
-            alerta=''
-            cls=self.classe.get()
-            if cls=='Crianca E23':
+            if self.classe.get() != 'Adulto CID E23':
+                if self.peso.get().strip() == '':
+                    messagebox.showerror('Atencao','E necessario informar o peso.')
+                    return
                 peso=float(self.peso.get().replace(',','.'))
-                max_day=0.1*peso
-                dose_day=curr_week/7
-                if dose_day>max_day:
-                    alerta+='\nATENÇÃO: Dose acima do limite Criança CID E23 (0,1 UI/kg/dia).\n'
-            elif cls=='Adulto E23':
-                dose_day=curr_week/7
-                if dose_day>1:
-                    alerta+='\nATENÇÃO: Dose acima do limite Adulto CID E23 (1 UI/dia).\n'
+                if peso <= 0:
+                    messagebox.showerror('Atencao','Informe um peso valido.')
+                    return
             else:
-                peso=float(self.peso.get().replace(',','.'))
-                max_day=0.15*peso
-                dose_day=curr_week/7
-                if dose_day>max_day:
-                    alerta+='\nATENÇÃO: Dose acima do limite CID Q96 (0,15 UI/kg/dia). A dose 0,2 UI/kg/dia somente casos especiais conforme PCDT, gentileza verificar.\n'
+                peso=None
 
-            ml_aplic = curr_ui/c if c else 0
-            ml_30 = ml_aplic * (cd/7) * 30
-            frascos = math.ceil(ml_30)
+            lui,lml=self.conv(lv,self.lu.get(),conc)
+            cui,cml=self.conv(cv,self.cu.get(),conc)
 
-            self.out.insert(tk.END,f'Dose semanal atual: {curr_week:.2f} UI\n')
-            self.out.insert(tk.END,f'Frascos para 30 dias: {frascos}\n')
+            dose_dia=(cui*cd)/7
+            alertas=[]
 
-            if c==4 and frascos>93:
-                alerta+='\nATENÇÃO: Ultrapassa o limite de 93 frascos para 4 UI/mL.\n'
-            if c==12 and frascos>31:
-                alerta+='\nATENÇÃO: Ultrapassa o limite de 31 frascos para 12 UI/mL.\n'
-
-            if alerta:
-                self.out.insert(tk.END, alerta)
+            if self.classe.get()=='Crianca CID E23':
+                dose_max=0.1*peso
+                if dose_dia>dose_max: alertas.append('Dose acima de 0,1 UI/kg/dia')
+            elif self.classe.get()=='Adulto CID E23':
+                dose_max=1
+                if dose_dia>1: alertas.append('Dose acima de 1 UI/dia')
             else:
-                self.out.insert(tk.END, '\n✅ Dose dentro dos limites cadastrados.')
+                dose_max=0.15*peso
+                if dose_dia>dose_max:
+                    alertas.append('Dose acima de 0,15 UI/kg/dia')
+                    alertas.append('Dose 0,2 UI/kg/dia somente em casos especiais conforme PCDT')
+
+            iguais = abs((lui*ld)-(cui*cd)) < 0.0001
+            frascos = math.ceil(cml*(cd/7)*30)
+
+            if conc==4 and frascos>93: alertas.append('Ultrapassa 93 frascos')
+            if conc==12 and frascos>31: alertas.append('Ultrapassa 31 frascos')
+
+            if iguais and not alertas:
+                self.out.insert('end','Tudo certo, dose atual confere com a ultima deferida.
+
+')
+            elif iguais:
+                self.out.insert('end','A dose atual confere com a ultima deferida.
+
+')
+
+            resumo = (
+                'RENOVACAO GH
+
+'
+                + 'Classificacao: ' + self.classe.get() + '
+'
+                + 'Dose anterior: %.2f UI (%.3f mL)
+' % (lui,lml)
+                + 'Dose atual: %.2f UI (%.3f mL)
+' % (cui,cml)
+                + 'Frequencia: %d dias por semana
+' % int(cd)
+                + 'Dose maxima: %.2f UI/dia
+' % dose_max
+                + 'Dose prescrita: %.2f UI/dia
+' % dose_dia
+                + 'Frascos para 30 dias: %d
+
+' % frascos
+            )
+            self.out.insert('end', resumo)
+
+            if alertas:
+                self.out.insert('end','REVISAR PRESCRICAO
+','red')
+                for a in alertas:
+                    self.out.insert('end','- '+a+'
+','red')
+            else:
+                self.out.insert('end','APTO PARA DISPENSACAO','green')
 
         except Exception as e:
             messagebox.showerror('Erro', str(e))
